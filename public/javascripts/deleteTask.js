@@ -11,7 +11,7 @@ $(document).ready(function () {
 			url:deleteURL}).done(function(){
 				var selector = "#" + taskID;
 				
-				$(selelctor).fadeOut ( function() {
+				$(selector).fadeOut ( function() {
 					this.remove ();
 				} );
 				

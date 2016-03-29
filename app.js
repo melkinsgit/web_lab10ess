@@ -12,6 +12,9 @@ var MongoClient = require('mongodb').MongoClient;
 var ObjectID = require('mongodb').ObjectID;
 const assert = require('assert');
 
+// add Mongoose
+//var mongoose = require('mongoose');
+
 // required the files in the routes dir
 // the index route
 var index = require('./routes/index');
@@ -37,6 +40,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // create database connection string
 var url = "mongodb://localhost:27017/todo"
+
+// added for Mongoose
+// var db = mongoose.connect(url);
 
 MongoClient.connect(url, function(err, db) {
 	if (err)

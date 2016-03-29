@@ -8,8 +8,8 @@ var ObjectID = require('mongodb').ObjectID;
 // It provides a task object (_id, name, completed) as an ATTRIBUTE of the req object
 // Order matters - we don't want it to operate on methods above
 
-/* FIND tasks */
-// finds a task with a given id
+/* PARAM */
+// finds a task with a given id - is called from other methods to return the task object
 router.param('task_id', function (req, res, next, taskId) {
 	console.log("params being extracted from the URL for " + taskId);
 	// request from the db collection tasks exactly 1 task with matching id
@@ -24,11 +24,12 @@ router.param('task_id', function (req, res, next, taskId) {
 				return next(new Error (task.length + ' tasks found, should be 1') );
 		}
 		req.task = task[0];  // the only element that should be returned for a match - this should be the task object with the ATTRIBUTE that has info about the name and state of the task
+		console.log(req.task);
 		return next();
 	} );
 } );
 
-/* GET All Tasks */
+/* GET */
 // Gets a list of NOT completed tasks
 router.get('/', function (req, res, next) {
 	
@@ -67,6 +68,61 @@ router.post('/addtask', function (req, res, next) {
 	} );
 } );
 
+/* GET */
+// Gets list of completed tasks
+router.get('/completed', function(req, res, next) {
+	req.db.tasks.find ( {completed:true} ).toArray( function (error, taskList) {
+		if (error){
+			return next(error);
+		}
+		res.render('tasks_completed', {title:'Completed', tasks:taskList || {}});
+	} );  // end find
+} );  // end get
+
+/* POST Completed task */
+router.post('/:task_id', function (req, res, next) {
+	
+	if (!req.body.completed)
+	{
+		return next (new Error ('body missing paramter?'));
+	}
+	req.db.tasks.updateOne(
+		{_id : ObjectID(req.task._id)},
+		{$set :{completed : true}},
+		function(error, result) {
+			if (error)
+			{
+				return next(error);
+			}
+			res.redirect('/tasks');
+	} );
+} );
+
+/* POST */
+// Marks all tasks as completed
+router.post('/:task_id', function (req, res, next) {
+	req.db.tasks.updateMany ( {completed : false}, {$set : { completed:true }}, function (error, count) {
+		if (error) {
+			console.log('error ' + error);
+			return next(error);
+		}
+		res.redirect('/tasks');
+	} );  // end updateMany
+} ); // post call back
+
+/* DELETE Delete a given task */
+router.delete('/:task_id', function (req, res, next) {
+	
+	req.db.tasks.remove ( { _id:ObjectID(req.task._id) }, function (error, result) {
+		if (error)
+		{
+			return next(error);
+		}
+		res.sendStatus(200);  // send success to AJAX call
+	} );
+} );
+
+
 /* GET completed tasks */
 // Gets a list of the completed tasks
 router.get( '/', function (req, res, next) {
@@ -82,25 +138,7 @@ router.get( '/', function (req, res, next) {
 
 // TODO
 
-/* POST Completed task */
-router.post('/:task_id', function (req, res, next) {
-	
-	if (!req.body.completed)
-	{
-		return next (new Error ('body missing paramter?'));
-	}
-	
-	req.db.tasks.updateOne(
-		{_id : ObjectID(req.task._id)},
-		{$set :{completed : true}},
-		function(error, result) {
-			if (error)
-			{
-				return next(error);
-			}
-			res.redirect('/tasks');
-	} );
-} );
+
 
 /* POST All tasks completed */
 router.post('/alldone', function (req, res, next) {
@@ -115,17 +153,6 @@ router.post('/alldone', function (req, res, next) {
 	} );
 } );
 
-/* DELETE Delete a given task */
-router.delete('/:task_id', function (req, res, next) {
-	
-	req.db.tasks.remove ( { _id:ObjectID(req.task._id) }, function (error, result) {
-		if (error)
-		{
-			return next(error);
-		}
-		res.sendStatus(200);  // send success to AJAX call
-	} );
-} );
 
 
 module.exports = router;
