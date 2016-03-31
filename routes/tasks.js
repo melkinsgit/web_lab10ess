@@ -2,18 +2,19 @@
 
 var express = require('express');
 var router = express.Router();
-var ObjectID = require('mongodb').ObjectID;
+// NO LONGER USING THIS var ObjectID = require('mongodb').ObjectID;
+// include the prototype - which is in models - it is task.js (singular)
+var Task = require('../models/task.js')
 
 /* GET */
 // Gets a list of NOT completed tasks
 router.get('/', function (req, res, next) {
 	
-	req.db.tasks.find( { completed : false} ).toArray (function (error, taskList) {
-		if (error)  // get a tasklist (array) unless there is an error
+	Task.find( { completed : false}, function (error, allTasks) {
+		if (error)  // get an allTasks (array) unless there is an error
 		{
 			return next(error);
 		}
-		var allTasks = taskList || []; // tasks is the taskList or an empty array
 		res.render('tasks', {title : "TODO", tasks : allTasks });
 	} ); 
 	
@@ -23,23 +24,28 @@ router.get('/', function (req, res, next) {
 // ADD NEW TASK
 // Adds new task to the database then redirects to tasks so we see the list
 router.post('/addtask', function (req, res, next) {
+	// where req is from the client and has a body with a task_name value
+	console.log('trying to add a task');
 	// if there is no data sent to request or there is no name for the task sent
 	if (!req.body || !req.body.task_name)
 	{
 		return next(new Error('no data provided') );
 	}
 	
-	// if all the data is there, go ahead and save the new TO DO, of course it is not completed
-	req.db.tasks.save( { name : req.body.task_name, completed : false}, function (error, task) {
+	// create a new Task by instantiating a Task object
+	var newTask = Task ({name : req.body.task_name, completed : false});
+	console.log(newTask);
+	
+	// if all the data is here, go ahead and save the new TO DO, of course it is not completed
+	newTask.save(function (error, task) {
 		if (error)
 		{
 			return next(error);  // if the save didn't work
 		}
-		if (!task)
+		else 
 		{
-			return next(new Error ('error saving new task') );  // if the save didn't result in a returned task
+			res.redirect('/tasks');  // if all went as planned show us the tasks
 		}
-		res.redirect('/tasks');  // if all went as planned show us the tasks
 	} );
 } );
 
@@ -47,8 +53,7 @@ router.post('/addtask', function (req, res, next) {
 /* GET completed tasks */
 // Gets a list of the completed tasks
 router.get( '/completed', function (req, res, next) {
-  	req.db.tasks.find ({ completed : true} ).toArray (function (error, tasklist) {
-		console.log('the task list result is ' + tasklist);
+  	Task.find ({ completed : true}, function (error, tasklist) {
 		if (error)  // get a tasklist (array) unless there is an error
 		{
 			return next(error);
@@ -62,7 +67,7 @@ router.get( '/completed', function (req, res, next) {
 /* POST All tasks completed */
 router.post('/alldone', function (req, res, next) {
 	
-	req.db.tasks.updateMany ( { completed : false }, {$set : { completed : true }}, function (error, count) {
+	Task.update ( { completed : false }, { completed : true }, {multi : true}, function (error, count) {
 		if (error)
 		{
 			console.log('error ' + error);
@@ -80,20 +85,16 @@ router.post('/alldone', function (req, res, next) {
 /* PARAM */
 // finds a task with a given id - is called from other methods to return the task object
 router.param('task_id', function (req, res, next, taskId) {
+	
 	console.log("params being extracted from the URL for " + taskId);
+	
 	// request from the db collection tasks exactly 1 task with matching id
-	req.db.tasks.find ( { _id : ObjectID(taskId)} ).limit(1).toArray(function (error, task) { // where task is the name of the returned array
+	Task.findById ( taskId, function (error, task) { // where task is task associated with the taskId from the client
 		if (error)
 		{
-			console.log ("param error " + error);
 			return next(error); // get out of fn
 		}
-		if (task.length != 1 )  // i.e. no matches to ids because it cannot be mroe than 1 due to limit in req
-		{
-				return next(new Error (task.length + ' tasks found, should be 1') );
-		}
-		req.task = task[0];  // the only element that should be returned for a match - this should be the task object with the ATTRIBUTE that has info about the name and state of the task
-		console.log(req.task);
+		req.task = task;  // sets a value to the request object; adds data to the data coming from the client
 		return next();
 	} );
 } );
@@ -102,17 +103,11 @@ router.param('task_id', function (req, res, next, taskId) {
 /* POST Completed task */
 router.post('/:task_id', function (req, res, next) {
 	
-	console.log('the body of the request in completed task is ' + req.body.completed);
-	console.log('and the id is ' + req.task._id);
-	
 	if (!req.body.completed)
 	{
 		return next (new Error ('body missing paramter?'));
 	}
-	req.db.tasks.updateOne(
-		{_id : ObjectID(req.task._id)},
-		{$set :{completed : true}},
-		function(error, result) {
+	Task.findByIdAndUpdate(req.task._id, {completed : true }, function (error, result){
 			if (error)
 			{
 				return next(error);
@@ -127,7 +122,7 @@ router.post('/:task_id', function (req, res, next) {
 /* DELETE Delete a given task */
 router.delete('/:task_id', function (req, res, next) {
 	
-	req.db.tasks.remove ( { _id:ObjectID(req.task._id) }, function (error, result) {
+	Task.findByIdAndRemove( req.task._id, function (error, result) {
 		if (error)
 		{
 			return next(error);

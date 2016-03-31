@@ -4,16 +4,14 @@ var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
+var mongoose = require('mongoose');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
 // add Mongo, Mongo Object ID and assert
-var MongoClient = require('mongodb').MongoClient;
-var ObjectID = require('mongodb').ObjectID;
+// var MongoClient = require('mongodb').MongoClient;
+// var ObjectID = require('mongodb').ObjectID;
 const assert = require('assert');
-
-// add Mongoose
-//var mongoose = require('mongoose');
 
 // required the files in the routes dir
 // the index route
@@ -41,26 +39,17 @@ app.use(express.static(path.join(__dirname, 'public')));
 // create database connection string
 var url = "mongodb://localhost:27017/todo"
 
-// added for Mongoose
-// var db = mongoose.connect(url);
 
-MongoClient.connect(url, function(err, db) {
-	if (err)
-	{
-		console.log("Error connecting to Mongo server ", err);
-		assert(!err);  // crash application if this err encountered
-	}
+// will create connection to the database todo - the db represented by the url string
+var db = mongoose.connect(url);
+
+
+mongoose.connection.on('error', function(err) {
+	console.log("Error connecting to MongoDB via Mongoose " + err);
+	});
 	
-	// otherwise show that we're connected
-	console.log("Established database connection");
-	
-	// TO DO set up routes, middleware and error handlers (added code from outisde this callback) here
-	
-	// give all routes access to DB
-	app.use(function (req, res, next) {
-		req.db = {};
-		req.db.tasks = db.collection('tasks');
-		next();
+mongoose.connection.once('open', function() {
+	console.log("Connected to MongoDB via Mongoose");
 	} );
 	
 	// routes from the root level of the routes dir
@@ -98,6 +87,5 @@ MongoClient.connect(url, function(err, db) {
 		error: {}
 	  });
 	});
-});
 
 module.exports = app;
